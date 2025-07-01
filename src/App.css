@@ -364,6 +364,13 @@
   font-size: 0.9rem;
 }
 
+.readonly-input {
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
+  cursor: not-allowed;
+  border-color: #d1d5db !important;
+}
+
 .transfer-btn {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
@@ -591,6 +598,12 @@
   .amount-input:focus {
     border-color: #10b981;
     background-color: #374151;
+  }
+
+  .readonly-input {
+    background-color: #1f2937 !important;
+    color: #6b7280 !important;
+    border-color: #4b5563 !important;
   }
 
   .contract-section h3 {

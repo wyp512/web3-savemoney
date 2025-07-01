@@ -224,8 +224,24 @@ function App() {
       
       const contract = await getContract();
       
+      // 检查合约余额是否足够
+      const currentBalanceWei = await contract.getBalance();
+      const currentBalance = parseFloat(ethers.formatEther(currentBalanceWei));
+      const transferAmountNum = parseFloat(transferAmount);
+      
+      if (currentBalance < transferAmountNum) {
+        throw new Error(`余额不足！当前余额: ${currentBalance.toFixed(6)} SSS，需要转账: ${transferAmountNum} SSS。请先存款。`);
+      }
+      
       // 使用 ethers.parseEther 转换金额
       const amountWei = ethers.parseEther(transferAmount);
+      
+      console.log('开始转账:', {
+        from: wallet.address,
+        to: transferTo,
+        amount: transferAmount + ' SSS',
+        amountWei: amountWei.toString()
+      });
       
       const tx = await contract.transfer(transferTo, amountWei);
       setTxHash(tx.hash);
@@ -245,8 +261,25 @@ function App() {
       await handleGetBalance();
       
     } catch (err: any) {
-      setError(err.message || '转账失败');
-      console.error('转账失败:', err);
+      // 更详细的错误处理
+      let errorMessage = '转账失败';
+      
+      if (err.message) {
+        if (err.message.includes('余额不足')) {
+          errorMessage = err.message;
+        } else if (err.message.includes('missing revert data')) {
+          errorMessage = '合约执行失败，可能是余额不足或合约条件不满足。请确保：1）已在合约中存款 2）余额充足 3）网络连接正常';
+        } else if (err.message.includes('user rejected')) {
+          errorMessage = '用户取消了交易';
+        } else if (err.message.includes('insufficient funds')) {
+          errorMessage = 'ETH余额不足支付gas费用';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      setError(errorMessage);
+      console.error('转账失败详情:', err);
     } finally {
       setIsLoading(false);
     }
@@ -333,7 +366,18 @@ function App() {
               <h4>转账功能</h4>
               <div className="transfer-inputs">
                 <div className="input-group">
-                  <label htmlFor="transferTo">目标地址:</label>
+                  <label htmlFor="transferFrom">从地址 (From):</label>
+                  <input
+                    id="transferFrom"
+                    type="text"
+                    value={wallet.address}
+                    disabled
+                    className="address-input readonly-input"
+                    title="当前连接的钱包地址"
+                  />
+                </div>
+                <div className="input-group">
+                  <label htmlFor="transferTo">目标地址 (To):</label>
                   <input
                     id="transferTo"
                     type="text"
@@ -363,7 +407,7 @@ function App() {
                   disabled={isLoading || !transferTo || !transferAmount}
                   className="action-btn transfer-btn"
                 >
-                  {isLoading ? '转账中...' : '转账'}
+                  {isLoading ? '转账中...' : 'Transfer'}
                 </button>
               </div>
             </div>
