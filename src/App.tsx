@@ -21,6 +21,10 @@ function App() {
   const [balance, setBalance] = useState<string>('0');
   const [isLoading, setIsLoading] = useState(false);
   const [txHash, setTxHash] = useState<string>('');
+  
+  // 转账相关状态
+  const [transferTo, setTransferTo] = useState<string>('');
+  const [transferAmount, setTransferAmount] = useState<string>('');
 
   // 监听账户和网络变化
   useEffect(() => {
@@ -198,6 +202,56 @@ function App() {
     }
   };
 
+  // 转账功能
+  const handleTransfer = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      setTxHash('');
+      
+      // 验证输入
+      if (!transferTo) {
+        throw new Error('请输入目标地址');
+      }
+      if (!transferAmount || parseFloat(transferAmount) <= 0) {
+        throw new Error('请输入有效的转账金额');
+      }
+      
+      // 验证地址格式
+      if (!ethers.isAddress(transferTo)) {
+        throw new Error('目标地址格式不正确');
+      }
+      
+      const contract = await getContract();
+      
+      // 使用 ethers.parseEther 转换金额
+      const amountWei = ethers.parseEther(transferAmount);
+      
+      const tx = await contract.transfer(transferTo, amountWei);
+      setTxHash(tx.hash);
+      
+      console.log('转账交易已发送:', tx.hash);
+      
+      // 等待交易确认
+      await tx.wait();
+      
+      console.log('转账成功!');
+      
+      // 清空输入框
+      setTransferTo('');
+      setTransferAmount('');
+      
+      // 自动刷新余额
+      await handleGetBalance();
+      
+    } catch (err: any) {
+      setError(err.message || '转账失败');
+      console.error('转账失败:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 格式化地址显示
   const formatAddress = (address: string) => {
     if (!address) return '';
@@ -272,6 +326,46 @@ function App() {
             {/* 余额显示 */}
             <div className="balance-display">
               <h4>当前余额: {balance} SSS</h4>
+            </div>
+            
+            {/* 转账功能 */}
+            <div className="transfer-section">
+              <h4>转账功能</h4>
+              <div className="transfer-inputs">
+                <div className="input-group">
+                  <label htmlFor="transferTo">目标地址:</label>
+                  <input
+                    id="transferTo"
+                    type="text"
+                    placeholder="输入接收方地址 (0x...)"
+                    value={transferTo}
+                    onChange={(e) => setTransferTo(e.target.value)}
+                    disabled={isLoading}
+                    className="address-input"
+                  />
+                </div>
+                <div className="input-group">
+                  <label htmlFor="transferAmount">转账金额 (SSS):</label>
+                  <input
+                    id="transferAmount"
+                    type="number"
+                    placeholder="输入转账金额"
+                    value={transferAmount}
+                    onChange={(e) => setTransferAmount(e.target.value)}
+                    disabled={isLoading}
+                    step="0.001"
+                    min="0"
+                    className="amount-input"
+                  />
+                </div>
+                <button 
+                  onClick={handleTransfer}
+                  disabled={isLoading || !transferTo || !transferAmount}
+                  className="action-btn transfer-btn"
+                >
+                  {isLoading ? '转账中...' : '转账'}
+                </button>
+              </div>
             </div>
             
             {/* 操作按钮 */}
