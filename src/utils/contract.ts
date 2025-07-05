@@ -1,5 +1,6 @@
 // 合约地址
-export const contractAddress = "0xB0F7eF85A8248c32ab216bCf79f181ca916F9168";
+export const contractAddress = "0x7A78DB4248d26d8143351F4B698814164E08149D";
+
 
 // 合约ABI
 export const contractAbi = [
