@@ -5,6 +5,14 @@
   padding: 0;
 }
 
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
 :root {
   /* 主色调 */
   --primary: #6366f1;
@@ -69,6 +77,11 @@ body {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
 }
 
 /* 应用容器 */
@@ -76,6 +89,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   min-height: 100vh;
   padding: 2rem 1rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -239,7 +253,7 @@ body {
 
 /* 钱包信息显示 */
 .wallet-info {
-  text-align: left;
+  text-align: center;
   position: relative;
   z-index: 1;
 }
@@ -278,7 +292,9 @@ body {
   color: var(--gray-700);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  text-align: center;
 }
 
 .wallet-details strong {
@@ -296,6 +312,9 @@ body {
   color: var(--gray-800);
   word-break: break-all;
   border: 1px solid var(--gray-300);
+  display: block;
+  text-align: center;
+  margin: 0 auto;
 }
 
 /* 钱包操作按钮 */
@@ -446,18 +465,22 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  align-items: center;
 }
 
 .input-group {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  width: 100%;
+  max-width: 500px;
 }
 
 .input-group label {
   color: var(--gray-700);
   font-weight: 500;
   font-size: 0.9rem;
+  text-align: center;
 }
 
 .address-input,
@@ -579,6 +602,7 @@ body {
   border: 1px solid var(--gray-200);
   position: relative;
   overflow: hidden;
+  text-align: center;
 }
 
 .tx-info::before {
@@ -595,6 +619,7 @@ body {
   color: var(--gray-700);
   font-weight: 500;
   margin-bottom: 0.5rem;
+  text-align: center;
 }
 
 .tx-info code {
@@ -621,6 +646,7 @@ body {
   position: relative;
   overflow: hidden;
   backdrop-filter: blur(10px);
+  text-align: center;
 }
 
 .error-message::before {
