@@ -555,6 +555,29 @@ body {
   cursor: not-allowed;
 }
 
+/* 输入验证样式 */
+.address-input.invalid,
+.amount-input.invalid {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  background: rgba(255, 245, 245, 0.98);
+}
+
+.address-input.invalid:focus,
+.amount-input.invalid:focus {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.validation-error {
+  display: block;
+  color: var(--error);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  font-weight: 500;
+  animation: fadeInUp 0.3s ease-out;
+}
+
 /* 按钮样式 */
 .action-btn {
   padding: 1rem 2rem;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import './App.css'
 import { connectWallet, listenToAccountChanges, listenToNetworkChanges, disconnectWallet } from './utils/web3'
 import { 
@@ -13,6 +13,43 @@ interface WalletState {
   chainId: number;
   isConnected: boolean;
 }
+
+interface TransactionResult {
+  txHash?: string;
+  balance?: string;
+}
+
+// 常量定义
+const CONSTANTS = {
+  DEPOSIT_AMOUNT: '0.01',
+  WITHDRAW_AMOUNT: '0.005',
+  NETWORKS: {
+    1: 'Ethereum 主网',
+    11155111: 'Sepolia 测试网',
+    5: 'Goerli 测试网',
+    137: 'Polygon 主网',
+    80001: 'Polygon Mumbai 测试网'
+  } as const
+} as const;
+
+// 工具函数
+const formatAddress = (address: string): string => {
+  if (!address) return '';
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+const getNetworkName = (chainId: number): string => {
+  return CONSTANTS.NETWORKS[chainId as keyof typeof CONSTANTS.NETWORKS] || `未知网络 (${chainId})`;
+};
+
+const isValidAddress = (address: string): boolean => {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+};
+
+const isValidAmount = (amount: string): boolean => {
+  const num = parseFloat(amount);
+  return !isNaN(num) && num > 0;
+};
 
 function App() {
   const [wallet, setWallet] = useState<WalletState>({
@@ -30,32 +67,74 @@ function App() {
   const [transferTo, setTransferTo] = useState<string>('');
   const [transferAmount, setTransferAmount] = useState<string>('');
 
+  // 通用的异步操作处理器
+  const handleAsyncOperation = useCallback(async (
+    operation: () => Promise<TransactionResult>,
+    successCallback?: () => void
+  ) => {
+    try {
+      setIsLoading(true);
+      setError('');
+      setTxHash('');
+      
+      const result = await operation();
+      
+      if (result.txHash) {
+        setTxHash(result.txHash);
+      }
+      
+      if (result.balance) {
+        setBalance(result.balance);
+      }
+      
+      successCallback?.();
+      
+    } catch (err: any) {
+      setError(err.message || '操作失败');
+      console.error('操作失败:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // 重置应用状态
+  const resetAppState = useCallback(() => {
+    setWallet({
+      address: '',
+      chainId: 0,
+      isConnected: false
+    });
+    setBalance('0');
+    setTxHash('');
+    setError('');
+    setTransferTo('');
+    setTransferAmount('');
+  }, []);
+
   // 监听账户和网络变化
   useEffect(() => {
-    listenToAccountChanges((address: string) => {
-      // 只有在已连接状态下才响应账户变化
+    const handleAccountChange = (address: string) => {
       if (wallet.isConnected) {
         if (address) {
           setWallet(prev => ({ ...prev, address }));
         } else {
-          // 用户在MetaMask中断开连接时，重置状态
-          setWallet({ address: '', chainId: 0, isConnected: false });
-          setBalance('0');
-          setTxHash('');
+          resetAppState();
         }
       }
-    });
+    };
 
-    listenToNetworkChanges((chainId: number) => {
-      // 只有在已连接状态下才响应网络变化
+    const handleNetworkChange = (chainId: number) => {
       if (wallet.isConnected) {
         setWallet(prev => ({ ...prev, chainId }));
       }
-    });
-  }, [wallet.isConnected]);
+    };
+
+    listenToAccountChanges(handleAccountChange);
+    listenToNetworkChanges(handleNetworkChange);
+  }, [wallet.isConnected, resetAppState]);
 
   // 连接钱包
-  const handleConnectWallet = async () => {
+  const handleConnectWallet = useCallback(async () => {
     try {
       setIsConnecting(true);
       setError('');
@@ -74,129 +153,66 @@ function App() {
     } finally {
       setIsConnecting(false);
     }
-  };
+  }, []);
 
   // 断开钱包连接
-  const handleDisconnectWallet = async () => {
+  const handleDisconnectWallet = useCallback(async () => {
     try {
       await disconnectWallet();
-      
-      // 清除应用状态
-      setWallet({
-        address: '',
-        chainId: 0,
-        isConnected: false
-      });
-      setBalance('0');
-      setTxHash('');
-      
+      resetAppState();
       console.log('钱包已断开连接');
     } catch (err: any) {
       console.error('断开钱包连接失败:', err);
     }
-  };
+  }, [resetAppState]);
 
   // 存款功能
-  const handleDeposit = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setTxHash('');
-      
-      const result = await depositToContract('0.01');
-      setTxHash(result.txHash || '');
-      
-      // 自动刷新余额
-      await handleGetBalance();
-      
-    } catch (err: any) {
-      setError(err.message || '存款失败');
-      console.error('存款失败:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const handleDeposit = useCallback(async () => {
+    await handleAsyncOperation(
+      () => depositToContract(CONSTANTS.DEPOSIT_AMOUNT),
+      () => handleGetBalance()
+    );
+  }, [handleAsyncOperation]);
 
   // 取款功能
-  const handleWithdraw = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setTxHash('');
-      
-      const result = await withdrawFromContract('0.005');
-      setTxHash(result.txHash || '');
-      
-      // 自动刷新余额
-      await handleGetBalance();
-      
-    } catch (err: any) {
-      setError(err.message || '取款失败');
-      console.error('取款失败:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const handleWithdraw = useCallback(async () => {
+    await handleAsyncOperation(
+      () => withdrawFromContract(CONSTANTS.WITHDRAW_AMOUNT),
+      () => handleGetBalance()
+    );
+  }, [handleAsyncOperation]);
 
   // 查询余额功能
-  const handleGetBalance = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      
-      const result = await getContractBalance();
-      setBalance(result.balance);
-      
-    } catch (err: any) {
-      setError(err.message || '查询余额失败');
-      console.error('查询余额失败:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const handleGetBalance = useCallback(async () => {
+    await handleAsyncOperation(() => getContractBalance());
+  }, [handleAsyncOperation]);
 
   // 转账功能
-  const handleTransfer = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setTxHash('');
-      
-      const result = await transferFromContract(transferTo, transferAmount);
-      setTxHash(result.txHash || '');
-      
-      // 清空输入框
-      setTransferTo('');
-      setTransferAmount('');
-      
-      // 自动刷新余额
-      await handleGetBalance();
-      
-    } catch (err: any) {
-      setError(err.message || '转账失败');
-      console.error('转账失败详情:', err);
-    } finally {
-      setIsLoading(false);
+  const handleTransfer = useCallback(async () => {
+    // 输入验证
+    if (!isValidAddress(transferTo)) {
+      setError('请输入有效的目标地址');
+      return;
     }
-  };
+    
+    if (!isValidAmount(transferAmount)) {
+      setError('请输入有效的转账金额');
+      return;
+    }
 
-  // 格式化地址显示
-  const formatAddress = (address: string) => {
-    if (!address) return '';
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
+    await handleAsyncOperation(
+      () => transferFromContract(transferTo, transferAmount),
+      () => {
+        setTransferTo('');
+        setTransferAmount('');
+        handleGetBalance();
+      }
+    );
+  }, [transferTo, transferAmount, handleAsyncOperation, handleGetBalance]);
 
-  // 获取网络名称
-  const getNetworkName = (chainId: number) => {
-    const networks: { [key: number]: string } = {
-      1: 'Ethereum 主网',
-      11155111: 'Sepolia 测试网',
-      5: 'Goerli 测试网',
-      137: 'Polygon 主网',
-      80001: 'Polygon Mumbai 测试网'
-    };
-    return networks[chainId] || `未知网络 (${chainId})`;
-  };
+  // 检查转账按钮是否可用
+  const isTransferDisabled = isLoading || !transferTo || !transferAmount || 
+    !isValidAddress(transferTo) || !isValidAmount(transferAmount);
 
   return (
     <div className="app">
@@ -280,8 +296,11 @@ function App() {
                     value={transferTo}
                     onChange={(e) => setTransferTo(e.target.value)}
                     disabled={isLoading}
-                    className="address-input"
+                    className={`address-input ${!isValidAddress(transferTo) && transferTo ? 'invalid' : ''}`}
                   />
+                  {transferTo && !isValidAddress(transferTo) && (
+                    <span className="validation-error">请输入有效的地址格式</span>
+                  )}
                 </div>
                 <div className="input-group">
                   <label htmlFor="transferAmount">转账金额 (SSS):</label>
@@ -294,12 +313,15 @@ function App() {
                     disabled={isLoading}
                     step="0.001"
                     min="0"
-                    className="amount-input"
+                    className={`amount-input ${!isValidAmount(transferAmount) && transferAmount ? 'invalid' : ''}`}
                   />
+                  {transferAmount && !isValidAmount(transferAmount) && (
+                    <span className="validation-error">请输入有效的金额</span>
+                  )}
                 </div>
                 <button 
                   onClick={handleTransfer}
-                  disabled={isLoading || !transferTo || !transferAmount}
+                  disabled={isTransferDisabled}
                   className="action-btn transfer-btn"
                 >
                   {isLoading ? '转账中...' : 'Transfer'}
@@ -314,7 +336,7 @@ function App() {
                 disabled={isLoading}
                 className="action-btn deposit-btn"
               >
-                {isLoading ? '处理中...' : '存款 (0.01 SSS)'}
+                {isLoading ? '处理中...' : `存款 (${CONSTANTS.DEPOSIT_AMOUNT} SSS)`}
               </button>
               
               <button 
@@ -322,7 +344,7 @@ function App() {
                 disabled={isLoading}
                 className="action-btn withdraw-btn"
               >
-                {isLoading ? '处理中...' : '取款 (0.005 SSS)'}
+                {isLoading ? '处理中...' : `取款 (${CONSTANTS.WITHDRAW_AMOUNT} SSS)`}
               </button>
               
               <button 
